@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="4fc6e8a3-41fe-400b-857a-ef5d176edcf6" name="test" url="https://cdn.blackyin.xyz:80">
+        <fileTransfer rootFolder="/root/test" accessType="SFTP" host="cdn.blackyin.xyz" port="22" sshConfigId="fe9cea35-044f-4f59-b71c-f40e54fda385" sshConfig="root@cdn.blackyin.xyz:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
