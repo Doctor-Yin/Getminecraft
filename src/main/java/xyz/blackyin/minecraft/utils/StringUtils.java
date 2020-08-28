@@ -1,4 +1,4 @@
-package xyz.blackyin.minecraft;
+package xyz.blackyin.minecraft.utils;
 
 /**
  * 文本处理，复制的 commons-lang3

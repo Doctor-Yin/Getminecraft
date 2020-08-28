@@ -1,144 +1,152 @@
 package xyz.blackyin.minecraft;
 
-import com.google.gson.Gson;
-import xyz.blackyin.minecraft.VersionManifest.VersionsBean;
 
+import com.google.gson.Gson;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import xyz.blackyin.minecraft.entity.SaveFile;
+import xyz.blackyin.minecraft.entity.Version;
+import xyz.blackyin.minecraft.entity.VersionManifest;
+import xyz.blackyin.minecraft.utils.FileUtils;
+import xyz.blackyin.minecraft.utils.HttpUtils;
+import xyz.blackyin.minecraft.utils.ThreadUtils;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
-public class main {
-    public static boolean load = false;  //文件更新核对sha1值功能下载没出错不用开启
-    public static String mojangPath = "E:/mojang/"; // 下载路径最后要带 ：/
-    public static int s = 0; //文件跳过数量值
-    public static int ss = 0; //文件完成数量值
-    public static int updateNumber; //文件更新数量值
+/**
+ * @author limbang-pc
+ * @create 2020/08/28 11:01
+ */
 
-    public static void main(String[] args) throws Exception {
-        if (mojangPath.charAt(mojangPath.length() - 1) == '/') {
-            String json = GetJson.getExecute("http://launchermeta.mojang.com/mc/game/version_manifest.json").body();
-            List<VersionsBean> versions = new Gson().fromJson(json, VersionManifest.class).getVersions();
-            ArrayList<ArrayList<String>> downloadListPathSha = new ArrayList<>();
-            ArrayList<ArrayList<String>> downloadListHashSize = new ArrayList<>();
-            ArrayList<ArrayList<String>> downloadListJsonSha = new ArrayList<>();
+public class Main {
+    private static final Logger logger = LoggerFactory.getLogger(Main.class);
 
-            for (VersionsBean version : versions) {
-                String url = version.getUrl();
-                String sha1 = StringUtils.substringBetween(url, "/packages/", "/");
-                String str = sha1;
-                String path = "v1/packages/" + str + "/" + Url.getLastString(url);
-                ArrayList<String> Client = new ArrayList<>();
-                Client.add(url);
-                Client.add(path);
-                Client.add(sha1);
-                downloadListJsonSha.add(Client);
-            }
-            LinkedHashSet<ArrayList<String>> set5 = new LinkedHashSet<>(downloadListJsonSha);
-            downloadListJsonSha = new ArrayList<>(set5);
-            DownloadLists.StartDownloadPathSha1(downloadListJsonSha);
+    private String mojangUrl = "https://launchermeta.mojang.com";
+    private String librariesUrl = "https://libraries.minecraft.net";
+    private String launcherUrl = "https://launcher.mojang.com";
+    private String baseDir = "C:/mc/test";
 
-            for (int i = 0; i < downloadListJsonSha.size(); i++) {
-                ArrayList<String> cache = downloadListJsonSha.get(i);
-                String path = cache.get(1);
-                String file = mojangPath + path;
-                String jsonJson = JsonRead.readJsonFile(file);
-                if (new Gson().fromJson(jsonJson, Object.class).getLogging() != null) {
-                    ArrayList<String> Client = new ArrayList<>();
-                    String url = new Gson().fromJson(jsonJson, Object.class).getLogging().getClient().getFile().getUrl();
-                    Client.add(url);
-                    String sha1 = new Gson().fromJson(jsonJson, Object.class).getLogging().getClient().getFile().getSha1();
-                    Client.add("v1/objects/" + sha1 + "/" + Url.getLastString(url));
-                    Client.add(sha1);
-                    downloadListPathSha.add(Client);
-                }
-                Object.DownloadsBean downloads = new Gson().fromJson(jsonJson, Object.class).getDownloads();
-                if (downloads.getClient() != null) {
-                    ArrayList<String> Client = new ArrayList<>();
-                    String url = downloads.getClient().getUrl();
-                    Client.add(url);
-                    String sha1 = downloads.getClient().getSha1();
-                    Client.add("v1/objects/" + sha1 + "/" + Url.getLastString(url));
-                    Client.add(sha1);
-                    downloadListPathSha.add(Client);
-                }
-                if (downloads.getServer() != null) {
-                    ArrayList<String> Client = new ArrayList<>();
-                    String url = downloads.getServer().getUrl();
-                    Client.add(url);
-                    String sha1 = downloads.getServer().getSha1();
-                    Client.add("v1/objects/" + sha1 + "/" + Url.getLastString(url));
-                    Client.add(sha1);
-                    downloadListPathSha.add(Client);
-                }
-                if (downloads.getClient_mappings() != null) {
-                    ArrayList<String> Client = new ArrayList<>();
-                    String url = downloads.getClient_mappings().getUrl();
-                    Client.add(url);
-                    String sha1 = downloads.getClient_mappings().getSha1();
-                    Client.add("v1/objects/" + sha1 + "/" + Url.getLastString(url));
-                    Client.add(sha1);
-                    downloadListPathSha.add(Client);
-                }
-                if (downloads.getServer_mappings() != null) {
-                    ArrayList<String> Client = new ArrayList<>();
-                    String url = downloads.getServer_mappings().getUrl();
-                    Client.add(url);
-                    String sha1 = downloads.getServer_mappings().getSha1();
-                    Client.add("v1/objects/" + sha1 + "/" + Url.getLastString(url));
-                    Client.add(sha1);
-                    downloadListPathSha.add(Client);
-                }
+    public Main() {
+        List<VersionManifest.VersionsBean> versions = getVersionManifest().getVersions();
+        Map<String, SaveFile> downloadList = new HashMap<>();
+
+        for (VersionManifest.VersionsBean version : versions) {
+            // 添加 VersionManifest 的所有 json 到下载列表
+            downloadList.put(version.getUrl(), splitUrl(version.getUrl(), mojangUrl));
+
+            Version version1 = getVersion(version.getUrl());
+
+            // 添加 assetIndex 到下载列表
+            SaveFile assetIndexFile = splitUrl(version1.getAssetIndex().getUrl(), mojangUrl);
+            assetIndexFile.setSha1(version1.getAssetIndex().getSha1());
+            assetIndexFile.setSize(version1.getAssetIndex().getSize());
+            downloadList.put(version1.getAssetIndex().getUrl(), assetIndexFile);
+
+            // 添加 logging 到下载列表
+            SaveFile loggingFile = splitUrl(version1.getLogging().getClient().getFile().getUrl(), launcherUrl);
+            loggingFile.setSha1(version1.getLogging().getClient().getFile().getSha1());
+            loggingFile.setSize(version1.getLogging().getClient().getFile().getSize());
+            downloadList.put(version1.getLogging().getClient().getFile().getUrl(), loggingFile);
+
+            // 添加 downloads 到下载列表
+            Map<String, Version.DownloadsBean> downloads = version1.getDownloads();
+            for (Map.Entry<String, Version.DownloadsBean> entry : downloads.entrySet()) {
+                SaveFile downloadFile = splitUrl(entry.getValue().getUrl(), launcherUrl);
+                downloadFile.setSize(entry.getValue().getSize());
+                downloadFile.setSha1(entry.getValue().getSha1());
+                downloadList.put(entry.getValue().getUrl(), downloadFile);
             }
-            LinkedHashSet<ArrayList<String>> set2 = new LinkedHashSet<>(downloadListPathSha);
-            downloadListPathSha = new ArrayList<>(set2);
-            downloadListJsonSha.clear();
-            for (VersionsBean versionsBean : versions) {
-                String cacheHome = mojangPath + "v1/packages";
-                String url = versionsBean.getUrl();
-                String file = cacheHome + "/" + StringUtils.substringBetween(url, "/packages/", "/") + "/" + Url.getLastString(url);
-                String jsonJson = JsonRead.readJsonFile(file);
-                String urlUrl = new Gson().fromJson(jsonJson, Object.class).getAssetIndex().getUrl();
-                String sha1 = StringUtils.substringBetween(urlUrl, "/packages/", "/");
-                String str = sha1;
-                String path = "v1/packages/" + str + "/" + Url.getLastString(urlUrl);
-                ArrayList<String> Client = new ArrayList<>();
-                Client.add(urlUrl);
-                Client.add(path);
-                Client.add(sha1);
-                downloadListJsonSha.add(Client);
+
+            // 添加 libraries 到下载列表
+            List<Version.LibrariesBean> libraries = version1.getLibraries();
+            for (Version.LibrariesBean librarie : libraries) {
+                String url = librarie.getDownloads().getArtifact().getUrl();
+                SaveFile librarieFile = splitUrl(url, librariesUrl);
+                librarieFile.setSha1(librarie.getDownloads().getArtifact().getSha1());
+                librarieFile.setSize(librarie.getDownloads().getArtifact().getSize());
+                downloadList.put(url, librarieFile);
             }
-            LinkedHashSet<ArrayList<String>> set6 = new LinkedHashSet<>(downloadListJsonSha);
-            downloadListJsonSha = new ArrayList<>(set6);
-            for (int e = 0; e < downloadListJsonSha.size(); e++) {
-                ArrayList<String> cache = downloadListJsonSha.get(e);
-                String url = cache.get(0);
-                String cacheHome = mojangPath + "v1/packages";
-                String file = cacheHome + "/" + StringUtils.substringBetween(url, "/packages/", "/") + "/" + Url.getLastString(url);
-                String jsonJson = JsonRead.readJsonFile(file);
-                Hash hash1 = new Gson().fromJson(jsonJson, Hash.class);
-                Map<String, Hash.HashBean> objects = hash1.getObjects();
-                for (Map.Entry<String, Hash.HashBean> stringHashBeanEntry : objects.entrySet()) {
-                    ArrayList<String> Client = new ArrayList<>();
-                    String hash = stringHashBeanEntry.getValue().getHash();
-                    int size = stringHashBeanEntry.getValue().getSize();
-                    String str = String.valueOf(hash.charAt(0)) + String.valueOf(hash.charAt(1));
-                    Client.add("http://resources.download.minecraft.net/" + str + "/" + hash);
-                    Client.add(String.valueOf(size));
-                    Client.add(str);
-                    Client.add(hash);
-                    downloadListHashSize.add(Client);
+
+            // 跳出循环,测试用
+            break;
+        }
+        ExecutorService executorService = ThreadUtils.newFixedThreadPool(10);
+        List<Future> futureList = new ArrayList<>();
+
+        logger.info("待下载总数:" + downloadList.size());
+        for (Map.Entry<String, SaveFile> entry : downloadList.entrySet()) {
+            Future future = executorService.submit(() -> {
+                if (entry.getValue().getSize() == 0) {
+                    if (FileUtils.download(entry.getKey(),
+                            entry.getValue().getDir(),
+                            entry.getValue().getName())) {
+                        logger.info("下载成功:" + entry.getValue().getName());
+                    } else {
+                        logger.error("下载失败:" + entry.getValue().getName());
+                    }
+                } else {
+                    if (FileUtils.downloadAndSha1(entry.getKey(),
+                            entry.getValue().getDir(),
+                            entry.getValue().getName(),
+                            entry.getValue().getSha1(),
+                            entry.getValue().getSize())) {
+                        logger.info("下载成功:" + entry.getValue().getName());
+                    } else {
+                        logger.error("下载失败:" + entry.getValue().getName());
+                    }
                 }
+            });
+            futureList.add(future);
+        }
+
+        for (Future future : futureList) {
+            try {
+                System.out.println(future.get());
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
             }
-            LinkedHashSet<ArrayList<String>> set4 = new LinkedHashSet<>(downloadListHashSize);
-            downloadListHashSize = new ArrayList<>(set4);
-            DownloadLists.StartDownloadPathSha1(downloadListJsonSha);
-            DownloadLists.StartDownloadHashSize(downloadListHashSize);
-            DownloadLists.StartDownloadPathSha1(downloadListPathSha);
-            System.out.println("更新了" + updateNumber + "文件");
-        }else {
-            System.out.println("路径最后符号不正确");
         }
     }
+
+
+    /**
+     * 拆分 url
+     *
+     * @param url
+     * @param baseUrl
+     * @return
+     */
+    private SaveFile splitUrl(String url, String baseUrl) {
+        String tem = url.replace(baseUrl, "");
+        int pos = tem.lastIndexOf("/") + 1;
+        SaveFile file = new SaveFile();
+        file.setDir(baseDir + tem.substring(0, pos));
+        file.setName(tem.substring(pos));
+        return file;
+    }
+
+    /**
+     * 获取 VersionManifest
+     *
+     * @return
+     */
+    private VersionManifest getVersionManifest() {
+        // 请求 version_manifest 并转换为实体
+        String url = mojangUrl + "/mc/game/version_manifest.json";
+        String json = HttpUtils.getString(url);
+        return new Gson().fromJson(json, VersionManifest.class);
+    }
+
+    private Version getVersion(String url) {
+        // 请求 url 并转换为实体
+        String json = HttpUtils.getString(url);
+        return new Gson().fromJson(json, Version.class);
+    }
+
 }

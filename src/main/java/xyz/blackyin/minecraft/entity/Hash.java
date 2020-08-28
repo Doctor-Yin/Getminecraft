@@ -1,4 +1,4 @@
-package xyz.blackyin.minecraft;
+package xyz.blackyin.minecraft.entity;
 
 import java.util.Map;
 
