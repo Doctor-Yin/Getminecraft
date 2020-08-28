@@ -41,7 +41,7 @@ public class FileUtils {
             Files.copy(ins, target, StandardCopyOption.REPLACE_EXISTING);
             return true;
         } catch (IOException e) {
-            logger.error("出现 IO 错误,文件下载失败!!");
+            logger.error("文件下载失败!!!");
         }
         return false;
     }
@@ -57,7 +57,7 @@ public class FileUtils {
         try (FileInputStream fileInputStream = new FileInputStream(filePath)) {
             return DigestUtils.sha1Hex(fileInputStream).equals(sha1);
         } catch (IOException e) {
-            logger.error("出现 IO 错误,读取数据失败!!");
+            logger.error("读取数据失败!!!");
         }
         return false;
     }
