@@ -1,8 +1,6 @@
 package xyz.blackyin.minecraft;
 
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import xyz.blackyin.minecraft.entity.SaveFile;
 import xyz.blackyin.minecraft.entity.Version;
 import xyz.blackyin.minecraft.entity.VersionManifest;
@@ -18,12 +16,11 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 
 public class Main {
-    private static final Logger logger = LoggerFactory.getLogger(Main.class);
 
     private String mojangUrl = "https://launchermeta.mojang.com";
     private String librariesUrl = "https://libraries.minecraft.net";
     private String launcherUrl = "https://launcher.mojang.com";
-    private String baseDir = "C:/mc/test";
+    private String baseDir = "C:/mc/mojang";
 
     public Main() {
         String versionManifestUrl = mojangUrl + "/mc/game/version_manifest.json";

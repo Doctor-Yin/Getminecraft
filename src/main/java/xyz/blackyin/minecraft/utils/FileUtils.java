@@ -41,7 +41,7 @@ public class FileUtils {
             Files.copy(ins, target, StandardCopyOption.REPLACE_EXISTING);
             return true;
         } catch (IOException e) {
-            logger.error("文件下载失败!!!");
+            logger.error("下载失败:" + ExceptionUtils.getExceptionInfo(e));
         }
         return false;
     }
@@ -57,7 +57,7 @@ public class FileUtils {
         try (FileInputStream fileInputStream = new FileInputStream(filePath)) {
             return DigestUtils.sha1Hex(fileInputStream).equals(sha1);
         } catch (IOException e) {
-            logger.error("读取数据失败!!!");
+            logger.error("读取失败:" + ExceptionUtils.getExceptionInfo(e));
         }
         return false;
     }
@@ -65,26 +65,26 @@ public class FileUtils {
     /**
      * 校验文件大小
      *
-     * @param size  正确文件大小
+     * @param size     正确文件大小
      * @param filePath 需要校验文件路径
      * @return
      */
-    public static boolean isSize(long size, String filePath){
+    public static boolean isSize(long size, String filePath) {
         return new File(filePath).length() == size;
     }
 
     /**
      * 下载并校验 sha1
      *
-     * @param url       url
-     * @param saveDir   保存的目录
-     * @param fileName  文件名称
-     * @param sha1      sha1值
+     * @param url      url
+     * @param saveDir  保存的目录
+     * @param fileName 文件名称
+     * @param sha1     sha1值
      * @return
      */
     public static boolean downloadAndSha1(String url, String saveDir, String fileName, String sha1) {
         if (download(url, saveDir, fileName)) {
-            if(isSha1(sha1, saveDir + fileName)){
+            if (isSha1(sha1, saveDir + fileName)) {
                 return true;
             }
         }
@@ -94,15 +94,15 @@ public class FileUtils {
     /**
      * 下载并校验 sha1,并对比大小
      *
-     * @param url       url
-     * @param saveDir   保存的目录
-     * @param fileName  文件名称
-     * @param sha1      sha1值
-     * @param size      正确文件大小
+     * @param url      url
+     * @param saveDir  保存的目录
+     * @param fileName 文件名称
+     * @param sha1     sha1值
+     * @param size     正确文件大小
      * @return
      */
-    public static boolean downloadAndSha1(String url, String saveDir, String fileName, String sha1,long size) {
-        if(downloadAndSha1(url,saveDir,fileName,sha1) && isSize(size,saveDir + fileName)){
+    public static boolean downloadAndSha1(String url, String saveDir, String fileName, String sha1, long size) {
+        if (downloadAndSha1(url, saveDir, fileName, sha1) && isSize(size, saveDir + fileName)) {
             return true;
         }
         return false;

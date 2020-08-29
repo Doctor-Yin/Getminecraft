@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit;
 
 public class DownloadFile {
 
-    private static final Logger logger = LoggerFactory.getLogger(Main.class);
+    private static final Logger logger = LoggerFactory.getLogger(DownloadFile.class);
     private Map<String, SaveFile> downloadList;
 
     public DownloadFile(Map<String, SaveFile> downloadList) {
@@ -36,6 +36,9 @@ public class DownloadFile {
         ExecutorService executorService = ThreadUtils.newFixedThreadPool(nThreads);
         // 一直重试下载,直到列表为空
         while (!downloadList.isEmpty()) {
+            if(executorService.isShutdown()){
+                //executorService = ThreadUtils.newFixedThreadPool(nThreads);
+            }
             for (Map.Entry<String, SaveFile> fileEntry : downloadList.entrySet()) {
                 executorService.submit(() -> {
                     if (downloadFile(fileEntry.getKey(), fileEntry.getValue())) {
@@ -44,18 +47,16 @@ public class DownloadFile {
                     }
                 });
             }
+            // 停止接收新任务，原来的任务继续执行
+            executorService.shutdown();
             try {
-                Thread.sleep(1000);
+                // 当前线程阻塞,直到所有任务完成,需配合 shutdown() 使用
+                executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
             } catch (InterruptedException e) {
                 logger.error("线程被中断...");
             }
         }
-        executorService.shutdown();
-        try {
-            executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-        } catch (InterruptedException e) {
-            logger.error("线程被中断...");
-        }
+
     }
 
     /**
